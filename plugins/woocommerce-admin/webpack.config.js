@@ -187,6 +187,8 @@ const webpackConfig = {
 		extensions: [ '.json', '.js', '.jsx', '.ts', '.tsx' ],
 		alias: {
 			'~': path.resolve( __dirname + '/client' ),
+			'react/jsx-dev-runtime': require.resolve( 'react/jsx-dev-runtime' ),
+			'react/jsx-runtime': require.resolve( 'react/jsx-runtime' ),
 		},
 	},
 	plugins: [
@@ -238,6 +240,10 @@ const webpackConfig = {
 				requestToExternal( request ) {
 					if ( request === '@wordpress/components/build/ui' ) {
 						// The external wp.components does not include ui components, so we need to skip requesting to external here.
+						return null;
+					}
+
+					if ( request.startsWith( '@wordpress/dataviews' ) ) {
 						return null;
 					}
 
