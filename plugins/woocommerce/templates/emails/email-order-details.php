@@ -50,7 +50,7 @@ do_action( 'woocommerce_email_before_order_table', $order, $sent_to_admin, $plai
 				$order,
 				array(
 					'show_sku'      => $sent_to_admin,
-					'show_image'    => false,
+					'show_image'    => true,
 					'image_size'    => array( 32, 32 ),
 					'plain_text'    => $plain_text,
 					'sent_to_admin' => $sent_to_admin,
@@ -67,7 +67,7 @@ do_action( 'woocommerce_email_before_order_table', $order, $sent_to_admin, $plai
 				foreach ( $item_totals as $total ) {
 					$i++;
 					?>
-					<tr>
+					<tr class="<?php echo esc_attr( $total['type'] ); ?>">
 						<th class="td" scope="row" colspan="2" style="text-align:<?php echo esc_attr( $text_align ); ?>; <?php echo ( 1 === $i ) ? 'border-top-width: 4px;' : ''; ?>"><?php echo wp_kses_post( $total['label'] ); ?></th>
 						<td class="td" style="text-align:<?php echo esc_attr( $text_align ); ?>; <?php echo ( 1 === $i ) ? 'border-top-width: 4px;' : ''; ?>"><?php echo wp_kses_post( $total['value'] ); ?></td>
 					</tr>
