@@ -149,7 +149,6 @@ final class BlockTypesController {
 
 		foreach ( $block_types as $block_type ) {
 			$block_type_class = __NAMESPACE__ . '\\BlockTypes\\' . $block_type;
-
 			new $block_type_class( $this->asset_api, $this->asset_data_registry, new IntegrationRegistry() );
 		}
 	}
@@ -414,6 +413,7 @@ final class BlockTypesController {
 			$block_types[] = 'ProductFilterRating';
 			$block_types[] = 'ProductFilterActive';
 			$block_types[] = 'ProductFilterClearButton';
+			$block_types[] = 'MiniCartInteractivity';
 		}
 
 		/**

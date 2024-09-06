@@ -169,6 +169,7 @@ const blocks = {
 const cartAndCheckoutBlocks = {
 	cart: {},
 	checkout: {},
+	'mini-cart-interactivity': {},
 	'mini-cart': {},
 	'mini-cart-contents': {
 		customDir: 'mini-cart/mini-cart-contents',
@@ -285,6 +286,10 @@ const entries = {
 		blocksComponents: './packages/components/index.ts',
 		'mini-cart-component':
 			'./assets/js/blocks/mini-cart/component-frontend.tsx',
+		'mini-cart-interactivity':
+			'./assets/js/blocks/mini-cart-interactivity/frontend.ts',
+		'mini-cart-interactivity-component':
+			'./assets/js/blocks/mini-cart-interactivity/component-frontend.tsx',
 	},
 };
 
