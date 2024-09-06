@@ -640,6 +640,7 @@ class ProductCollection extends AbstractBlock {
 		$stock_status        = $request->get_param( 'woocommerceStockStatus' );
 		$product_attributes  = $request->get_param( 'woocommerceAttributes' );
 		$handpicked_products = $request->get_param( 'woocommerceHandPickedProducts' );
+		$related_to          = $request->get_param( 'woocommerceRelatedTo' );
 		$featured            = $request->get_param( 'featured' );
 		$time_frame          = $request->get_param( 'timeFrame' );
 		$price_range         = $request->get_param( 'priceRange' );
@@ -655,6 +656,7 @@ class ProductCollection extends AbstractBlock {
 				'stock_status'        => $stock_status,
 				'product_attributes'  => $product_attributes,
 				'handpicked_products' => $handpicked_products,
+				'related_to'          => $related_to,
 				'featured'            => $featured,
 				'timeFrame'           => $time_frame,
 				'priceRange'          => $price_range,
@@ -728,16 +730,17 @@ class ProductCollection extends AbstractBlock {
 	 * @param bool  $is_exclude_applied_filters Whether to exclude the applied filters or not.
 	 */
 	private function get_final_frontend_query( $query, $page = 1, $is_exclude_applied_filters = false ) {
-		$offset   = $query['offset'] ?? 0;
-		$per_page = $query['perPage'] ?? 9;
+		$product_ids = $query['post__in'] ?? array();
+		$offset      = $query['offset'] ?? 0;
+		$per_page    = $query['perPage'] ?? 9;
 
 		$common_query_values = array(
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 			'meta_query'     => array(),
-			'posts_per_page' => $query['perPage'],
+			'posts_per_page' => $per_page,
 			'order'          => $query['order'],
 			'offset'         => ( $per_page * ( $page - 1 ) ) + $offset,
-			'post__in'       => array(),
+			'post__in'       => $product_ids,
 			'post_status'    => 'publish',
 			'post_type'      => 'product',
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
@@ -750,6 +753,7 @@ class ProductCollection extends AbstractBlock {
 		$product_attributes  = $query['woocommerceAttributes'] ?? array();
 		$taxonomies_query    = $this->get_filter_by_taxonomies_query( $query['tax_query'] ?? array() );
 		$handpicked_products = $query['woocommerceHandPickedProducts'] ?? array();
+		$related_to          = $query['woocommerceRelatedTo'] ?? array();
 		$time_frame          = $query['timeFrame'] ?? null;
 		$price_range         = $query['priceRange'] ?? null;
 
@@ -762,6 +766,7 @@ class ProductCollection extends AbstractBlock {
 				'product_attributes'  => $product_attributes,
 				'taxonomies_query'    => $taxonomies_query,
 				'handpicked_products' => $handpicked_products,
+				'related_to'          => $related_to,
 				'featured'            => $query['featured'] ?? false,
 				'timeFrame'           => $time_frame,
 				'priceRange'          => $price_range,
@@ -780,24 +785,35 @@ class ProductCollection extends AbstractBlock {
 	 * @param bool  $is_exclude_applied_filters Whether to exclude the applied filters or not.
 	 */
 	private function get_final_query_args( $common_query_values, $query, $is_exclude_applied_filters = false ) {
-		$handpicked_products = $query['handpicked_products'] ?? array();
-		$orderby_query       = $query['orderby'] ? $this->get_custom_orderby_query( $query['orderby'] ) : array();
-		$on_sale_query       = $this->get_on_sale_products_query( $query['on_sale'] );
-		$stock_query         = $this->get_stock_status_query( $query['stock_status'] );
-		$visibility_query    = is_array( $query['stock_status'] ) ? $this->get_product_visibility_query( $stock_query, $query['stock_status'] ) : array();
-		$featured_query      = $this->get_featured_query( $query['featured'] ?? false );
-		$attributes_query    = $this->get_product_attributes_query( $query['product_attributes'] );
-		$taxonomies_query    = $query['taxonomies_query'] ?? array();
-		$tax_query           = $this->merge_tax_queries( $visibility_query, $attributes_query, $taxonomies_query, $featured_query );
-		$date_query          = $this->get_date_query( $query['timeFrame'] ?? array() );
-		$price_query_args    = $this->get_price_range_query_args( $query['priceRange'] ?? array() );
+		$orderby_query    = $query['orderby'] ? $this->get_custom_orderby_query( $query['orderby'] ) : array();
+		$on_sale_query    = $this->get_on_sale_products_query( $query['on_sale'] );
+		$stock_query      = $this->get_stock_status_query( $query['stock_status'] );
+		$visibility_query = is_array( $query['stock_status'] ) ? $this->get_product_visibility_query( $stock_query, $query['stock_status'] ) : array();
+		$featured_query   = $this->get_featured_query( $query['featured'] ?? false );
+		$attributes_query = $this->get_product_attributes_query( $query['product_attributes'] );
+		$taxonomies_query = $query['taxonomies_query'] ?? array();
+		$tax_query        = $this->merge_tax_queries( $visibility_query, $attributes_query, $taxonomies_query, $featured_query );
+		$date_query       = $this->get_date_query( $query['timeFrame'] ?? array() );
+		$price_query_args = $this->get_price_range_query_args( $query['priceRange'] ?? array() );
 
 		// We exclude applied filters to generate product ids for the filter blocks.
 		$applied_filters_query = $is_exclude_applied_filters ? array() : $this->get_queries_by_applied_filters();
 
-		$merged_query = $this->merge_queries( $common_query_values, $orderby_query, $on_sale_query, $stock_query, $tax_query, $applied_filters_query, $date_query, $price_query_args );
+		$merged_query = $this->merge_queries(
+			$common_query_values,
+			$orderby_query,
+			$on_sale_query,
+			$stock_query,
+			$tax_query,
+			$applied_filters_query,
+			$date_query,
+			$price_query_args
+		);
 
-		$result = $this->filter_query_to_only_include_ids( $merged_query, $handpicked_products );
+		$handpicked_products = $query['handpicked_products'] ?? array();
+		$related_products    = $this->get_related_products( $query['related_to'], $common_query_values['posts_per_page'] );
+
+		$result = $this->filter_query_to_only_include_ids( $merged_query, $handpicked_products, $related_products );
 
 		return $result;
 	}
@@ -1109,6 +1125,29 @@ class ProductCollection extends AbstractBlock {
 	}
 
 	/**
+	 * Returns a query for filtering products that are related to the ones given.
+	 *
+	 * @param array $product_ids The IDs pf products that we're looking for a relationship to.
+	 * @param int   $per_page   The number of related products to fetch.
+	 * @return array The IDs of the related products.
+	 */
+	private function get_related_products( $product_ids, $per_page ) {
+		if ( empty( $product_ids ) ) {
+			return array();
+		}
+
+		$related_product_ids = array();
+		foreach ( $product_ids as $id ) {
+			$related_product_ids = array_merge(
+				$related_product_ids,
+				wc_get_related_products( $id, $per_page )
+			);
+		}
+
+		return $related_product_ids;
+	}
+
+	/**
 	 * Generates a tax query to filter products based on their "featured" status.
 	 * If the `$featured` parameter is true, the function will return a tax query
 	 * that filters products to only those marked as featured.
@@ -1240,15 +1279,42 @@ class ProductCollection extends AbstractBlock {
 	 * Apply the query only to a subset of products
 	 *
 	 * @param array $query  The query.
-	 * @param array $ids  Array of selected product ids.
+	 * @param array ...$ids The product IDs to filter.
 	 *
 	 * @return array
 	 */
-	private function filter_query_to_only_include_ids( $query, $ids ) {
-		if ( ! empty( $ids ) ) {
-			$query['post__in'] = empty( $query['post__in'] ) ?
-				$ids : array_intersect( $ids, $query['post__in'] );
+	private function filter_query_to_only_include_ids( $query, ...$ids ) {
+		if ( empty( $ids ) ) {
+			return $query;
 		}
+
+		// Since we're using array_intersect, any array that is empty will result
+		// in an empty array. To avoid this, we need to make sure every
+		// argument is a non-empty array.
+		$i              = 0;
+		$len            = count( $ids );
+		$post_in_filter = null;
+
+		// Make sure to filter any product IDs that have already been set in the query too.
+		if ( ! empty( $query['post__in'] ) ) {
+			$post_in_filter = $query['post__in'];
+		} else {
+			// Find the first non-empty array to serve as the base for the intersection.
+			while ( empty( $post_in_filter ) && $i < $len ) {
+				$post_in_filter = $ids[ $i ];
+				++$i;
+			}
+		}
+
+		for ( ; $i < $len; ++$i ) {
+			$arr = $ids[ $i ];
+			if ( is_array( $arr ) && ! empty( $arr ) ) {
+				$post_in_filter = array_intersect( $arr, $post_in_filter );
+			}
+		}
+
+		// Clean up the output since there will be duplicates and possibly some weird keys.
+		$query['post__in'] = array_values( array_unique( $post_in_filter, SORT_NUMERIC ) );
 
 		return $query;
 	}
