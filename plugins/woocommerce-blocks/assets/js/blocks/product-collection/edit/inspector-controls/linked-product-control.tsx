@@ -15,6 +15,7 @@ import {
 	Flex,
 	FlexItem,
 	Dropdown,
+	RadioControl,
 	// @ts-expect-error Using experimental features
 	// eslint-disable-next-line @wordpress/no-unsafe-wp-apis
 	__experimentalText as Text,
@@ -86,7 +87,7 @@ const LinkedProductPopoverContent: React.FC< {
 } > = ( { query, setAttributes, setIsDropdownOpen } ) => (
 	<ProductControl
 		selected={ query?.productReference as SelectedOption }
-		onChange={ ( value: SelectedOption[] = [] ) => {
+		onChange={ ( value: { id: number }[] = [] ) => {
 			const productId = value[ 0 ]?.id ?? null;
 			if ( productId !== null ) {
 				setAttributes( {
@@ -104,6 +105,11 @@ const LinkedProductPopoverContent: React.FC< {
 	/>
 );
 
+const enum PRODUCT_REF {
+	CURRENT_PRODUCT = 'CURRENT_PRODUCT',
+	SPECIFIC_PRODUCT = 'SPECIFIC_PRODUCT',
+}
+
 const LinkedProductControl = ( {
 	query,
 	setAttributes,
@@ -116,8 +122,12 @@ const LinkedProductControl = ( {
 	usesReference: string[] | undefined;
 } ) => {
 	const [ isDropdownOpen, setIsDropdownOpen ] = useState< boolean >( false );
+	const [ productReference, setProductReference ] = useState< PRODUCT_REF >(
+		PRODUCT_REF.CURRENT_PRODUCT
+	);
 	const { product, isLoading } = useGetProduct( query.productReference );
 
+	const showDropdown = productReference === PRODUCT_REF.SPECIFIC_PRODUCT;
 	const showLinkedProductControl = useMemo( () => {
 		const isInRequiredLocation = usesReference?.includes( location.type );
 		const isProductContextRequired = usesReference?.includes( 'product' );
@@ -133,32 +143,70 @@ const LinkedProductControl = ( {
 
 	if ( ! showLinkedProductControl ) return null;
 
+	const radioControlHelp =
+		productReference === PRODUCT_REF.CURRENT_PRODUCT
+			? __(
+					'Related products will be pulled from the product a shopper is currently viewing',
+					'woocommerce'
+			  )
+			: __(
+					'Select a product to pull the related products from',
+					'woocommerce'
+			  );
+
 	return (
 		<PanelBody title={ __( 'Linked Product', 'woocommerce' ) }>
 			<PanelRow>
-				<Dropdown
-					className="wc-block-product-collection-linked-product-control"
-					contentClassName="wc-block-product-collection-linked-product__popover-content"
-					popoverProps={ { placement: 'left-start' } }
-					renderToggle={ ( { isOpen, onToggle } ) => (
-						<ProductButton
-							isOpen={ isOpen }
-							onToggle={ onToggle }
-							product={ product }
-							isLoading={ isLoading }
-						/>
-					) }
-					renderContent={ () => (
-						<LinkedProductPopoverContent
-							query={ query }
-							setAttributes={ setAttributes }
-							setIsDropdownOpen={ setIsDropdownOpen }
-						/>
-					) }
-					open={ isDropdownOpen }
-					onToggle={ () => setIsDropdownOpen( ! isDropdownOpen ) }
+				<RadioControl
+					className="wc-block-product-collection-product-reference-radio"
+					label={ __( 'Products to show', 'woocommerce' ) }
+					help={ radioControlHelp }
+					selected={ productReference }
+					options={ [
+						{
+							label: __(
+								'From the current product',
+								'woocommerce'
+							),
+							value: PRODUCT_REF.CURRENT_PRODUCT,
+						},
+						{
+							label: __(
+								'From a specific product',
+								'woocommerce'
+							),
+							value: PRODUCT_REF.SPECIFIC_PRODUCT,
+						},
+					] }
+					onChange={ setProductReference }
 				/>
 			</PanelRow>
+			{ showDropdown && (
+				<PanelRow>
+					<Dropdown
+						className="wc-block-product-collection-linked-product-control"
+						contentClassName="wc-block-product-collection-linked-product__popover-content"
+						popoverProps={ { placement: 'left-start' } }
+						renderToggle={ ( { isOpen, onToggle } ) => (
+							<ProductButton
+								isOpen={ isOpen }
+								onToggle={ onToggle }
+								product={ product }
+								isLoading={ isLoading }
+							/>
+						) }
+						renderContent={ () => (
+							<LinkedProductPopoverContent
+								query={ query }
+								setAttributes={ setAttributes }
+								setIsDropdownOpen={ setIsDropdownOpen }
+							/>
+						) }
+						open={ isDropdownOpen }
+						onToggle={ () => setIsDropdownOpen( ! isDropdownOpen ) }
+					/>
+				</PanelRow>
+			) }
 		</PanelBody>
 	);
 };
