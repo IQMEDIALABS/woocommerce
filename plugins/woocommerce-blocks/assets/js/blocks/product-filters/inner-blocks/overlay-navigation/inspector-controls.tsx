@@ -1,10 +1,9 @@
-/* eslint-disable @wordpress/no-unsafe-wp-apis */
 /**
  * External dependencies
  */
 import { InspectorControls } from '@wordpress/block-editor';
 import { BlockEditProps } from '@wordpress/blocks';
-import { __ } from '@wordpress/i18n';
+import { __, _x } from '@wordpress/i18n';
 import {
 	PanelBody,
 	RadioControl,
