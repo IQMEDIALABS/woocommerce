@@ -92,7 +92,11 @@ body {
 }
 
 #template_header_image p {
+	font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+	font-size: 20px;
+	font-weight: bold;
 	margin: 0;
+	text-transform: uppercase;
 }
 
 #template_header_image img {
