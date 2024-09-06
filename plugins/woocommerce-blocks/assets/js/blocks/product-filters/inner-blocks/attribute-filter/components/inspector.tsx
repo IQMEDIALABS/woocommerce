@@ -7,6 +7,8 @@ import { InspectorControls } from '@wordpress/block-editor';
 import { dispatch, useSelect } from '@wordpress/data';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { useLocalStorageState } from '@woocommerce/base-hooks';
+import { Block, getBlockTypes, createBlock } from '@wordpress/blocks';
 import {
 	ComboboxControl,
 	PanelBody,
@@ -26,8 +28,11 @@ import {
 import { sortOrderOptions } from '../constants';
 import { BlockAttributes, EditProps } from '../types';
 import { getAttributeFromId } from '../utils';
+import { getInnerBlockByName } from '../../../utils';
 
 const ATTRIBUTES = getSetting< AttributeSetting[] >( 'attributes', [] );
+
+let displayStyleOptions: Block[] = [];
 
 export const Inspector = ( {
 	clientId,
@@ -43,47 +48,35 @@ export const Inspector = ( {
 		hideEmpty,
 		clearButton,
 	} = attributes;
-	const { updateBlockAttributes } = dispatch( 'core/block-editor' );
-	const { productFilterWrapperBlockId, productFilterWrapperHeadingBlockId } =
-		useSelect(
-			( select ) => {
-				if ( ! clientId )
-					return {
-						productFilterWrapperBlockId: undefined,
-						productFilterWrapperHeadingBlockId: undefined,
-					};
-
-				const { getBlockParentsByBlockName, getBlock } =
-					select( 'core/block-editor' );
-
-				const parentBlocksByBlockName = getBlockParentsByBlockName(
-					clientId,
-					'woocommerce/product-filter'
-				);
-
-				if ( parentBlocksByBlockName.length === 0 )
-					return {
-						productFilterWrapperBlockId: undefined,
-						productFilterWrapperHeadingBlockId: undefined,
-					};
-
-				const parentBlockId = parentBlocksByBlockName[ 0 ];
-
-				const parentBlock = getBlock( parentBlockId );
-				const headerGroupBlock = parentBlock?.innerBlocks.find(
-					( block ) => block.name === 'core/group'
-				);
-				const headingBlock = headerGroupBlock?.innerBlocks.find(
-					( block ) => block.name === 'core/heading'
-				);
-
-				return {
-					productFilterWrapperBlockId: parentBlockId,
-					productFilterWrapperHeadingBlockId: headingBlock?.clientId,
-				};
-			},
-			[ clientId ]
+	const { updateBlockAttributes, insertBlock, replaceBlock } =
+		dispatch( 'core/block-editor' );
+	const rootBlock = useSelect( ( select ) =>
+		select( 'core/block-editor' ).getBlock( clientId )
+	);
+	const filterBlock = useSelect(
+		( select ) => {
+			return select( 'core/block-editor' ).getBlock( clientId );
+		},
+		[ clientId ]
+	);
+	const [ displayStyleBlocksAttributes, setDisplayStyleBlocksAttributes ] =
+		useLocalStorageState< Record< string, unknown > >(
+			'product-filter-attribute',
+			{}
 		);
+
+	const filterHeadingBlock = getInnerBlockByName(
+		filterBlock,
+		'core/heading'
+	);
+
+	if ( displayStyleOptions.length === 0 ) {
+		displayStyleOptions = getBlockTypes().filter( ( blockType ) =>
+			blockType.ancestor?.includes(
+				'woocommerce/product-filter-attribute'
+			)
+		);
+	}
 
 	return (
 		<>
@@ -102,17 +95,9 @@ export const Inspector = ( {
 							} );
 							const attributeObject =
 								getAttributeFromId( numericId );
-							if ( productFilterWrapperBlockId ) {
+							if ( filterHeadingBlock ) {
 								updateBlockAttributes(
-									productFilterWrapperBlockId,
-									{
-										attributeId: numericId,
-									}
-								);
-							}
-							if ( productFilterWrapperHeadingBlockId ) {
-								updateBlockAttributes(
-									productFilterWrapperHeadingBlockId,
+									filterHeadingBlock.clientId,
 									{
 										content:
 											attributeObject?.label ??
@@ -188,17 +173,46 @@ export const Inspector = ( {
 						value={ displayStyle }
 						onChange={ (
 							value: BlockAttributes[ 'displayStyle' ]
-						) => setAttributes( { displayStyle: value } ) }
+						) => {
+							if ( ! rootBlock ) return;
+							const currentStyleBlock = getInnerBlockByName(
+								rootBlock,
+								displayStyle
+							);
+
+							if ( currentStyleBlock ) {
+								setDisplayStyleBlocksAttributes( {
+									...displayStyleBlocksAttributes,
+									[ displayStyle ]:
+										currentStyleBlock.attributes,
+								} );
+								replaceBlock(
+									currentStyleBlock.clientId,
+									createBlock(
+										value,
+										displayStyleBlocksAttributes[ value ] ||
+											{}
+									)
+								);
+							} else {
+								insertBlock(
+									createBlock( value ),
+									rootBlock.innerBlocks.length,
+									rootBlock.clientId,
+									false
+								);
+							}
+							setAttributes( { displayStyle: value } );
+						} }
 						style={ { width: '100%' } }
 					>
-						<ToggleGroupControlOption
-							label={ __( 'List', 'woocommerce' ) }
-							value="list"
-						/>
-						<ToggleGroupControlOption
-							label={ __( 'Chips', 'woocommerce' ) }
-							value="chips"
-						/>
+						{ displayStyleOptions.map( ( blockType ) => (
+							<ToggleGroupControlOption
+								key={ blockType.name }
+								label={ blockType.title }
+								value={ blockType.name }
+							/>
+						) ) }
 					</ToggleGroupControl>
 					<ToggleControl
 						label={ __( 'Product counts', 'woocommerce' ) }
