@@ -369,6 +369,39 @@ class CustomOrdersTableController {
 	}
 
 	/**
+	 * Recreate order addresses FTS index. Useful when updating to 9.4 when phone number was added to index, or when other recreating index is needed.
+	 *
+	 * @since 9.4.0.
+	 *
+	 * @return array Array with keys status (bool) and message (string).
+	 */
+	public function recreate_order_address_fts_index(): array {
+		$this->db_util->drop_fts_index_order_address_table();
+		if ( $this->db_util->fts_index_on_order_address_table_exists() ) {
+			return array(
+				'status'  => false,
+				'message' => __( 'Failed to modify existing FTS index. Please go to WooCommerce > Status > Tools and run the "Re-create Order Address FTS index" tool.', 'woocommerce' ),
+			);
+		} else {
+			update_option( self::HPOS_FTS_ADDRESS_INDEX_CREATED_OPTION, 'no', true );
+		}
+
+		$this->db_util->create_fts_index_order_address_table();
+		if ( ! $this->db_util->fts_index_on_order_address_table_exists() ) {
+			return array(
+				'status'  => false,
+				'message' => __( 'Failed to create FTS index on order address table. Please go to WooCommerce > Status > Tools and run the "Re-create Order Address FTS index" tool.', 'woocommerce' ),
+			);
+		} else {
+			update_option( self::HPOS_FTS_ADDRESS_INDEX_CREATED_OPTION, 'yes' );
+			return array(
+				'status'  => true,
+				'message' => __( 'FTS index recreated.', 'woocommerce' ),
+			);
+		}
+	}
+
+	/**
 	 * Handler for the setting pre-update hook.
 	 * We use it to verify that authoritative orders table switch doesn't happen while sync is pending.
 	 *
